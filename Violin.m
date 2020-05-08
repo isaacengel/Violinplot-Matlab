@@ -1,4 +1,8 @@
 classdef Violin < handle
+% EDITED to support changing Median and
+% DataPoint sizes, and edge widths
+% Last edit: 8th Apr 2020, Isaac Engel
+
     % Violin creates violin plots for some data
     %   A violin plot is an easy to read substitute for a box plot
     %   that replaces the box shape with a kernel density estimate of
@@ -35,6 +39,14 @@ classdef Violin < handle
     %                  Defaults to false
     %    ShowMean    - Whether to show mean indicator.
     %                  Defaults to false
+    %    DataSize    - Size of the data points
+    %                  Defaults to 36
+    %    MedianSize  - Size of the median indicator
+    %                  Defaults to 36
+    %    LineWidth   - Width of whiskers and violin edges
+    %                  Defaults to 0.5 points
+    %    MeanWidth   - Width of the mean line
+    %                  Defaults to 1 point
     %
     % Violin Children:
     %    ScatterPlot - <a href="matlab:help('scatter')">scatter</a> plot of the data points
@@ -68,6 +80,10 @@ classdef Violin < handle
         ShowData    % whether to show data points
         ShowNotches % whether to show notch indicators
         ShowMean    % whether to show mean indicator
+        MedianSize  % size of the median indicator
+        DataSize    % size of the data points
+        LineWidth   % width of whiskers and violin edges
+        MeanWidth   % width of the mean line
     end
 
     methods
@@ -102,6 +118,14 @@ classdef Violin < handle
             %                    Defaults to false
             %     'ShowMean'     Whether to show mean indicator.
             %                    Defaults to false
+            %     'DataSize'     Size of the data points
+            %                    Defaults to 36
+            %     'MedianSize'   Size of the median indicator
+            %                    Defaults to 36
+            %     'LineWidth'    Width of whiskers and violin edges
+            %                    Defaults to 0.5 points
+            %     'MeanWidth'    Width of the mean line
+            %                    Defaults to 1 point
 
             args = obj.checkInputs(data, pos, varargin{:});
             data = data(not(isnan(data)));
@@ -115,10 +139,7 @@ classdef Violin < handle
             hold('on');
 
             % calculate kernel density estimation for the violin
-            if isempty(data)
-                return
-            end
-            [density, value] = ksdensity(data, 'bandwidth', args.Bandwidth);
+            [density, value, u] = ksdensity(data, 'bandwidth', args.Bandwidth); %fprintf('u=%0.2f\n',u);
             density = density(value >= min(data) & value <= max(data));
             value = value(value >= min(data) & value <= max(data));
             value(1) = min(data);
@@ -139,20 +160,35 @@ classdef Violin < handle
             end
             jitter = 2*(rand(size(data))-0.5);
             obj.ScatterPlot = ...
-                scatter(pos + jitter.*jitterstrength, data, 'filled');
+                scatter(pos + jitter.*jitterstrength, data,...
+                args.DataSize, 'filled', 'LineWidth', args.LineWidth);
 
             % plot the violin
             obj.ViolinPlot =  ... % plot color will be overwritten later
                 fill([pos+density*width pos-density(end:-1:1)*width], ...
-                     [value value(end:-1:1)], [1 1 1]);
+                     [value value(end:-1:1)], [1 1 1],...
+                     'LineWidth', args.LineWidth);
 
             % plot the mini-boxplot within the violin
             quartiles = quantile(data, [0.25, 0.5, 0.75]);         
             obj.BoxPlot = ... % plot color will be overwritten later
                 fill(pos+[-1,1,1,-1]*args.BoxWidth, ...
                      [quartiles(1) quartiles(1) quartiles(3) quartiles(3)], ...
-                     [1 1 1]);
+                     [1 1 1], 'LineWidth', args.LineWidth);
+              
+            % EDIT 9/3/2020: mean plot was here before
                  
+            IQR = quartiles(3) - quartiles(1);
+            lowhisker = quartiles(1) - 1.5*IQR;
+            lowhisker = max(lowhisker, min(data(data > lowhisker)));
+            hiwhisker = quartiles(3) + 1.5*IQR;
+            hiwhisker = min(hiwhisker, max(data(data < hiwhisker)));
+            if ~isempty(lowhisker) && ~isempty(hiwhisker)
+                obj.WhiskerPlot = plot([pos pos], [lowhisker hiwhisker],...
+                    'LineWidth', args.LineWidth);
+            end
+            
+            % EDIT 9/3/2020: moving this after the whisker plot (start)
             % plot the data mean
             meanValue = mean(data);
             if length(density) > 1
@@ -165,24 +201,20 @@ classdef Violin < handle
             end
             obj.MeanPlot = plot(pos+[-1,1].*meanDensityWidth, ...
                                 [meanValue, meanValue]);
-            obj.MeanPlot.LineWidth = 1;
-                 
-            IQR = quartiles(3) - quartiles(1);
-            lowhisker = quartiles(1) - 1.5*IQR;
-            lowhisker = max(lowhisker, min(data(data > lowhisker)));
-            hiwhisker = quartiles(3) + 1.5*IQR;
-            hiwhisker = min(hiwhisker, max(data(data < hiwhisker)));
-            if ~isempty(lowhisker) && ~isempty(hiwhisker)
-                obj.WhiskerPlot = plot([pos pos], [lowhisker hiwhisker]);
-            end
-            obj.MedianPlot = scatter(pos, quartiles(2), [], [1 1 1], 'filled');
+            obj.MeanPlot.LineWidth = args.MeanWidth;
+            % EDIT 9/3/2020: moving this after the whisker plot (end)
+            
+            obj.MedianPlot = scatter(pos, quartiles(2), args.MedianSize,...
+                [1 1 1], 'filled', 'LineWidth', args.LineWidth);% EDITED
 
             obj.NotchPlots = ...
                  scatter(pos, quartiles(2)-1.57*IQR/sqrt(length(data)), ...
-                         [], [1 1 1], 'filled', '^');
+                         [], [1 1 1], 'filled', '^',...
+                         'LineWidth', args.LineWidth);
             obj.NotchPlots(2) = ...
                  scatter(pos, quartiles(2)+1.57*IQR/sqrt(length(data)), ...
-                         [], [1 1 1], 'filled', 'v');
+                         [], [1 1 1], 'filled', 'v',...
+                         'LineWidth', args.LineWidth);
 
             obj.EdgeColor = args.EdgeColor;
             obj.BoxColor = args.BoxColor;
@@ -338,6 +370,10 @@ classdef Violin < handle
             p.addParameter('ShowData', true, isscalarlogical);
             p.addParameter('ShowNotches', false, isscalarlogical);
             p.addParameter('ShowMean', false, isscalarlogical);
+            p.addParameter('MedianSize', 36, isscalarnumber);
+            p.addParameter('DataSize', 36, isscalarnumber);
+            p.addParameter('LineWidth', 0.5, isscalarnumber);
+            p.addParameter('MeanWidth', 1, isscalarnumber);
 
             p.parse(data, pos, varargin{:});
             results = p.Results;

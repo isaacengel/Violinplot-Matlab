@@ -19,3 +19,9 @@ vs2 = violinplot(MPG,Origin,'GroupOrder',grouporder);
 display('Test 2 passed ok');
 
 %other test cases could be added here
+
+% TEST CASE 3 (subcategories)
+load patients
+figure;
+vs3 = violinplot(Weight,{Gender,Smoker});
+display('Test 3 passed ok');

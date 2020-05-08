@@ -1,3 +1,6 @@
+This fork introduces support for subcategories and other little stuff
+like changing the size of the data points and the line widths.
+
 # Violin Plots for Matlab
 
 A violin plot is an easy to read substitute for a box plot that
